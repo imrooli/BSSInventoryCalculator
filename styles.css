@@ -1,0 +1,17 @@
+.container {
+    width: 90%;
+    margin: 0 auto;
+}
+
+.inventory-section, .controls-section, .results-section {
+    margin-bottom: 20px;
+}
+
+input {
+    margin-left: 10px;
+}
+
+textarea {
+    width: 100%;
+    height: 150px;
+}
