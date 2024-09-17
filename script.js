@@ -199,7 +199,7 @@ const blenderRecipes = {
     "Turpentine": {"Super Smoothie": 10, "Caustic Wax": 10, "Star Jelly": 100, "Honeysuckle": 1000}
 };
 
-// Extract base ingredients
+// Function to extract base ingredients from recipes
 function extractBaseIngredients(...recipeDicts) {
     const ingredients = new Set();
     recipeDicts.forEach(recipeDict => {
@@ -210,190 +210,139 @@ function extractBaseIngredients(...recipeDicts) {
     return Array.from(ingredients).sort();
 }
 
+// Get the base ingredients
 const baseIngredients = extractBaseIngredients(recipes, blenderRecipes);
 
-// Initialize the calculator
-document.addEventListener("DOMContentLoaded", () => {
-    const inventoryContent = document.getElementById("inventory-content");
-    const itemSelect = document.getElementById("item-select");
-    const treeView = document.getElementById("treeview");
-    const craftingStepsText = document.getElementById("crafting-steps");
-
-    const ingredients = {};
-
-    // Populate inventory fields
-    baseIngredients.forEach((ingredient, i) => {
-        const label = document.createElement("label");
-        label.textContent = ingredient;
-
-        const input = document.createElement("input");
-        input.type = "number";
-        input.id = `ingredient-${ingredient}`;
-        input.value = 0;
-        ingredients[ingredient] = input;
-
-        const div = document.createElement("div");
-        div.appendChild(label);
-        div.appendChild(input);
-        inventoryContent.appendChild(div);
-    });
-
-    // Populate the dropdown
-    Object.keys(recipes).forEach(item => {
-        const option = document.createElement("option");
-        option.value = item;
-        option.textContent = item;
-        itemSelect.appendChild(option);
-    });
-
-function calculateRequirements() {
-    const selectedItem = document.getElementById("endgame-item").value;
+// Function to calculate requirements
+function calculateRequirements(selectedItem, inventory) {
     const requiredItems = recipes[selectedItem] || {};
-    let missingItems = {}; // To store missing items
-    let craftingSteps = []; // To store crafting steps
+    const missingItems = {};
+    const craftingSteps = [];
 
-    // Get inventory amounts from input fields
-    const inventory = {};
-    document.querySelectorAll(".ingredient-input").forEach(input => {
-        const ingredient = input.id;
-        const amount = parseInt(input.value) || 0;
-        inventory[ingredient] = amount;
-    });
-
-    // Recursive function to calculate required quantities
     function getRequiredQuantity(item, quantityNeeded, level = 1) {
         const availableInventory = inventory[item] || 0;
-        let remainingQuantity = Math.max(0, quantityNeeded - availableInventory); // Calculate remaining quantity
+        const remainingQuantity = Math.max(0, quantityNeeded - availableInventory);
 
-        let indent = "  ".repeat(level);
+        const indent = "  ".repeat(level);
         if (remainingQuantity > 0) {
-            // Add a crafting step
             craftingSteps.push(`${indent}Step ${level}: Craft ${remainingQuantity} of ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
 
-            // If this item has sub-recipes, recursively calculate their requirements
             if (recipes[item]) {
-                for (let subItem in recipes[item]) {
-                    let subQuantity = recipes[item][subItem] * remainingQuantity;
-                    getRequiredQuantity(subItem, subQuantity, level + 1);
-                }
+                Object.entries(recipes[item]).forEach(([subItem, subQuantity]) => {
+                    const totalRequired = subQuantity * remainingQuantity;
+                    getRequiredQuantity(subItem, totalRequired, level + 1);
+                });
             } else if (blenderRecipes[item]) {
-                // Check for blender recipes
-                for (let subItem in blenderRecipes[item]) {
-                    let subQuantity = blenderRecipes[item][subItem] * remainingQuantity;
-                    getRequiredQuantity(subItem, subQuantity, level + 1);
-                }
+                Object.entries(blenderRecipes[item]).forEach(([subItem, subQuantity]) => {
+                    const totalRequired = subQuantity * remainingQuantity;
+                    getRequiredQuantity(subItem, totalRequired, level + 1);
+                });
             } else {
-                // If it's a base material, add it to the missing items
                 missingItems[item] = (missingItems[item] || 0) + remainingQuantity;
-                craftingSteps.push(`${indent}  → Base material: ${remainingQuantity} of ${item}`);
+                craftingSteps.push(`${indent}  → Base material: ${remainingQuantity} of ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
             }
         } else {
-            craftingSteps.push(`${indent}Step ${level}: No need to craft ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
+            craftingSteps.push(`${indent}Step ${level}: ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
+            craftingSteps.push(`${indent}  → Inventory has sufficient ${item} (${availableInventory} available)`);
         }
     }
 
-    // Start calculating from the selected item
-    for (let item in requiredItems) {
-        let quantity = requiredItems[item];
+    Object.entries(requiredItems).forEach(([item, quantity]) => {
         getRequiredQuantity(item, quantity);
-    }
-
-    // Display results
-    displayResults(missingItems, craftingSteps);
-}
-
-// Function to display results in the TreeView and crafting steps area
-function displayResults(missingItems, craftingSteps) {
-    // Clear the existing tree and steps
-    const treeView = document.getElementById("crafting-tree");
-    const craftingStepsText = document.getElementById("crafting-steps");
-    treeView.innerHTML = "";
-    craftingStepsText.value = "";
-
-    // Function to build tree structure in HTML
-    function addTreeItem(parentNode, itemName, quantity) {
-        if (quantity > 0) {
-            let listItem = document.createElement("li");
-            listItem.textContent = `${itemName}: ${quantity}`;
-            parentNode.appendChild(listItem);
-
-            if (recipes[itemName]) {
-                let subList = document.createElement("ul");
-                listItem.appendChild(subList);
-                for (let subItem in recipes[itemName]) {
-                    let subQuantity = recipes[itemName][subItem] * quantity;
-                    addTreeItem(subList, subItem, missingItems[subItem] || 0);
-                }
-            } else if (blenderRecipes[itemName]) {
-                let subList = document.createElement("ul");
-                listItem.appendChild(subList);
-                for (let subItem in blenderRecipes[itemName]) {
-                    let subQuantity = blenderRecipes[itemName][subItem] * quantity;
-                    addTreeItem(subList, subItem, missingItems[subItem] || 0);
-                }
-            }
-        }
-    }
-
-    // Add items to tree view
-    for (let item in missingItems) {
-        addTreeItem(treeView, item, missingItems[item]);
-    }
-
-    // Display crafting steps in the textarea
-    craftingStepsText.value = craftingSteps.join("\n");
-}
-
-// Add event listeners
-document.getElementById("calculate-btn").addEventListener("click", calculateRequirements);
-
-    // Save and load inventory functionality
-    document.getElementById("save-btn").addEventListener("click", () => {
-        const inventory = {};
-        Object.keys(ingredients).forEach(ingredient => {
-            inventory[ingredient] = parseInt(ingredients[ingredient].value) || 0;
-        });
-        const json = JSON.stringify(inventory);
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "inventory.json";
-        a.click();
     });
 
-    document.getElementById("load-btn").addEventListener("click", () => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".json";
-        input.addEventListener("change", (event) => {
-            const file = event.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const inventory = JSON.parse(e.target.result);
-                Object.keys(inventory).forEach(ingredient => {
-                    if (ingredients[ingredient]) {
-                        ingredients[ingredient].value = inventory[ingredient];
-                    }
+    Object.keys(missingItems).forEach(item => {
+        missingItems[item] = Math.max(0, missingItems[item] - (inventory[item] || 0));
+    });
+
+    return { missingItems, craftingSteps };
+}
+
+// Populate inventory fields dynamically
+function populateInventoryFields() {
+    const inventoryFieldsDiv = document.getElementById('inventoryFields');
+    baseIngredients.forEach(ingredient => {
+        const label = document.createElement('label');
+        label.textContent = ingredient;
+        label.htmlFor = ingredient;
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.id = ingredient;
+        input.name = ingredient;
+        inventoryFieldsDiv.appendChild(label);
+        inventoryFieldsDiv.appendChild(input);
+        inventoryFieldsDiv.appendChild(document.createElement('br'));
+    });
+}
+
+// Save inventory data as a JSON file
+function saveInventory() {
+    const inventory = {};
+    baseIngredients.forEach(ingredient => {
+        inventory[ingredient] = parseInt(document.getElementById(ingredient).value) || 0;
+    });
+    
+    const dataStr = JSON.stringify(inventory, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventory.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Handle file upload and parse JSON
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (file && file.type === 'application/json') {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                baseIngredients.forEach(ingredient => {
+                    document.getElementById(ingredient).value = data[ingredient] || 0;
                 });
-            };
-            reader.readAsText(file);
-        });
-        input.click();
-    });
+            } catch (err) {
+                alert('Failed to parse JSON file');
+            }
+        };
+        reader.readAsText(file);
+    } else {
+        alert('Please upload a valid JSON file');
+    }
+}
 
-    // Clipboard loading (requires user permission)
-    document.getElementById("clipboard-btn").addEventListener("click", async () => {
-        try {
-            const clipboardText = await navigator.clipboard.readText();
-            const inventory = JSON.parse(clipboardText);
-            Object.keys(inventory).forEach(ingredient => {
-                if (ingredients[ingredient]) {
-                    ingredients[ingredient].value = inventory[ingredient];
-                }
-            });
-        } catch (e) {
-            alert("Failed to load from clipboard.");
-        }
-    });
+// Load JSON data from the clipboard
+async function loadFromClipboard() {
+    try {
+        const clipboardData = await navigator.clipboard.readText();
+        const data = JSON.parse(clipboardData);
+
+        baseIngredients.forEach(ingredient => {
+            document.getElementById(ingredient).value = data[ingredient] || 0;
+        });
+    } catch (err) {
+        alert('Failed to load JSON data from clipboard');
+    }
+}
+
+// Initialize event listeners and populate inventory fields
+document.addEventListener('DOMContentLoaded', () => {
+    const endgameItemSelect = document.getElementById('endgameItem');
+    const calculateButton = document.getElementById('calculateButton');
+    const resultsTree = document.getElementById('resultsTree');
+    const craftingStepsTextArea = document.getElementById('craftingSteps');
+
+    // Attach event listeners
+    document.getElementById('saveButton').addEventListener('click', saveInventory);
+    document.getElementById('uploadFile').addEventListener('change', handleFileUpload);
+    document.getElementById('loadClipboardButton').addEventListener('click', loadFromClipboard);
+
+    // Populate inventory fields when the page loads
+    populateInventoryFields();
 });
+

@@ -7,33 +7,31 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="app">
+    <div class="container">
         <h1>Bee Swarm Simulator Crafting Calculator</h1>
-
-        <div id="inventory">
+        <div class="inventory">
             <h2>Inventory</h2>
+            <form id="inventoryForm">
+                <div id="inventoryFields"></div>
+            </form>
         </div>
-
-        <div id="controls">
-            <h2>Controls</h2>
-            <label for="endgame-item">Select Endgame Item:</label>
-            <select id="endgame-item">
-                <option value="Super Smoothie">Super Smoothie</option>
-                <option value="Purple Potion">Purple Potion</option>
-                <!-- Add other items as needed -->
+        <div class="controls">
+            <label for="endgameItem">Select Endgame Item:</label>
+            <select id="endgameItem">
+                <!-- Options will be populated dynamically -->
             </select>
-            <button id="calculate-btn">Calculate Missing Materials</button>
+            <button id="calculateButton">Calculate Missing Materials</button>
+            <button id="saveButton">Save Inventory</button>
+            <label for="uploadFile">Upload Inventory JSON:</label>
+            <input type="file" id="uploadFile" accept=".json">
+            <button id="loadClipboardButton">Load from Clipboard</button>
         </div>
-
-        <div id="results">
-            <h2>Crafting Tree</h2>
-            <ul id="crafting-tree"></ul>
-
-            <h2>Crafting Steps</h2>
-            <textarea id="crafting-steps" readonly></textarea>
+        <div class="results">
+            <h2>Results</h2>
+            <div id="resultsTree"></div>
+            <textarea id="craftingSteps" readonly></textarea>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
