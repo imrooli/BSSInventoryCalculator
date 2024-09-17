@@ -246,63 +246,106 @@ document.addEventListener("DOMContentLoaded", () => {
         itemSelect.appendChild(option);
     });
 
-    // Calculate missing materials
-    document.getElementById("calculate-btn").addEventListener("click", () => {
-        const selectedItem = itemSelect.value;
-        const requiredItems = recipes[selectedItem] || {};
-        const missingItems = {};
-        const craftingSteps = [];
+function calculateRequirements() {
+    const selectedItem = document.getElementById("endgame-item").value;
+    const requiredItems = recipes[selectedItem] || {};
+    let missingItems = {}; // To store missing items
+    let craftingSteps = []; // To store crafting steps
 
-        // Read inventory values
-        const inventory = {};
-        Object.keys(ingredients).forEach(ingredient => {
-            inventory[ingredient] = parseInt(ingredients[ingredient].value) || 0;
-        });
+    // Get inventory amounts from input fields
+    const inventory = {};
+    document.querySelectorAll(".ingredient-input").forEach(input => {
+        const ingredient = input.id;
+        const amount = parseInt(input.value) || 0;
+        inventory[ingredient] = amount;
+    });
 
-        // Function to calculate quantities recursively
-        function getRequiredQuantity(item, quantityNeeded, level = 1) {
-            const availableInventory = inventory[item] || 0;
-            const remainingQuantity = Math.max(0, quantityNeeded - availableInventory);
+    // Recursive function to calculate required quantities
+    function getRequiredQuantity(item, quantityNeeded, level = 1) {
+        const availableInventory = inventory[item] || 0;
+        let remainingQuantity = Math.max(0, quantityNeeded - availableInventory); // Calculate remaining quantity
 
-            if (remainingQuantity > 0) {
-                craftingSteps.push(`Step ${level}: Craft ${remainingQuantity} of ${item}`);
-                
-                if (recipes[item]) {
-                    Object.entries(recipes[item]).forEach(([subItem, subQuantity]) => {
-                        getRequiredQuantity(subItem, subQuantity * remainingQuantity, level + 1);
-                    });
-                } else if (blenderRecipes[item]) {
-                    Object.entries(blenderRecipes[item]).forEach(([subItem, subQuantity]) => {
-                        getRequiredQuantity(subItem, subQuantity * remainingQuantity, level + 1);
-                    });
-                } else {
-                    missingItems[item] = (missingItems[item] || 0) + remainingQuantity;
+        let indent = "  ".repeat(level);
+        if (remainingQuantity > 0) {
+            // Add a crafting step
+            craftingSteps.push(`${indent}Step ${level}: Craft ${remainingQuantity} of ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
+
+            // If this item has sub-recipes, recursively calculate their requirements
+            if (recipes[item]) {
+                for (let subItem in recipes[item]) {
+                    let subQuantity = recipes[item][subItem] * remainingQuantity;
+                    getRequiredQuantity(subItem, subQuantity, level + 1);
+                }
+            } else if (blenderRecipes[item]) {
+                // Check for blender recipes
+                for (let subItem in blenderRecipes[item]) {
+                    let subQuantity = blenderRecipes[item][subItem] * remainingQuantity;
+                    getRequiredQuantity(subItem, subQuantity, level + 1);
+                }
+            } else {
+                // If it's a base material, add it to the missing items
+                missingItems[item] = (missingItems[item] || 0) + remainingQuantity;
+                craftingSteps.push(`${indent}  → Base material: ${remainingQuantity} of ${item}`);
+            }
+        } else {
+            craftingSteps.push(`${indent}Step ${level}: No need to craft ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
+        }
+    }
+
+    // Start calculating from the selected item
+    for (let item in requiredItems) {
+        let quantity = requiredItems[item];
+        getRequiredQuantity(item, quantity);
+    }
+
+    // Display results
+    displayResults(missingItems, craftingSteps);
+}
+
+// Function to display results in the TreeView and crafting steps area
+function displayResults(missingItems, craftingSteps) {
+    // Clear the existing tree and steps
+    const treeView = document.getElementById("crafting-tree");
+    const craftingStepsText = document.getElementById("crafting-steps");
+    treeView.innerHTML = "";
+    craftingStepsText.value = "";
+
+    // Function to build tree structure in HTML
+    function addTreeItem(parentNode, itemName, quantity) {
+        if (quantity > 0) {
+            let listItem = document.createElement("li");
+            listItem.textContent = `${itemName}: ${quantity}`;
+            parentNode.appendChild(listItem);
+
+            if (recipes[itemName]) {
+                let subList = document.createElement("ul");
+                listItem.appendChild(subList);
+                for (let subItem in recipes[itemName]) {
+                    let subQuantity = recipes[itemName][subItem] * quantity;
+                    addTreeItem(subList, subItem, missingItems[subItem] || 0);
+                }
+            } else if (blenderRecipes[itemName]) {
+                let subList = document.createElement("ul");
+                listItem.appendChild(subList);
+                for (let subItem in blenderRecipes[itemName]) {
+                    let subQuantity = blenderRecipes[itemName][subItem] * quantity;
+                    addTreeItem(subList, subItem, missingItems[subItem] || 0);
                 }
             }
         }
-
-        Object.entries(requiredItems).forEach(([item, quantity]) => {
-            getRequiredQuantity(item, quantity);
-        });
-
-        // Display results
-        displayResults(missingItems, craftingSteps);
-    });
-
-    // Display results in the UI
-    function displayResults(missingItems, craftingSteps) {
-        // Clear treeview and crafting steps
-        treeView.innerHTML = "";
-        craftingStepsText.value = "";
-
-        Object.entries(missingItems).forEach(([item, quantity]) => {
-            const li = document.createElement("li");
-            li.textContent = `${item}: ${quantity}`;
-            treeView.appendChild(li);
-        });
-
-        craftingStepsText.value = craftingSteps.join("\n");
     }
+
+    // Add items to tree view
+    for (let item in missingItems) {
+        addTreeItem(treeView, item, missingItems[item]);
+    }
+
+    // Display crafting steps in the textarea
+    craftingStepsText.value = craftingSteps.join("\n");
+}
+
+// Add event listeners
+document.getElementById("calculate-btn").addEventListener("click", calculateRequirements);
 
     // Save and load inventory functionality
     document.getElementById("save-btn").addEventListener("click", () => {
