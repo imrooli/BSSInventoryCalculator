@@ -232,11 +232,6 @@ function calculateRequirements(selectedItem, inventory) {
                     const totalRequired = subQuantity * remainingQuantity;
                     getRequiredQuantity(subItem, totalRequired, level + 1);
                 });
-            } else if (blenderRecipes[item]) {
-                Object.entries(blenderRecipes[item]).forEach(([subItem, subQuantity]) => {
-                    const totalRequired = subQuantity * remainingQuantity;
-                    getRequiredQuantity(subItem, totalRequired, level + 1);
-                });
             } else {
                 missingItems[item] = (missingItems[item] || 0) + remainingQuantity;
                 craftingSteps.push(`${indent}  → Base material: ${remainingQuantity} of ${item} (needed ${quantityNeeded}, have ${availableInventory})`);
@@ -257,6 +252,28 @@ function calculateRequirements(selectedItem, inventory) {
 
     return { missingItems, craftingSteps };
 }
+
+function displayResults(missingItems, craftingSteps) {
+    const resultsTree = document.getElementById('resultsTree');
+    const craftingStepsTextArea = document.getElementById('craftingSteps');
+
+    // Clear previous results
+    resultsTree.innerHTML = '';
+    craftingStepsTextArea.value = '';
+
+    // Display missing items
+    for (const [item, quantity] of Object.entries(missingItems)) {
+        if (quantity > 0) {
+            const resultItem = document.createElement('div');
+            resultItem.textContent = `${item}: ${quantity}`;
+            resultsTree.appendChild(resultItem);
+        }
+    }
+
+    // Display crafting steps
+    craftingStepsTextArea.value = craftingSteps.join('\n');
+}
+
 
 // Populate inventory fields dynamically
 function populateInventoryFields() {
@@ -341,17 +358,33 @@ async function loadFromClipboard() {
     }
 }
 
+
+
 // Initialize event listeners and populate inventory fields
 document.addEventListener('DOMContentLoaded', () => {
     const endgameItemSelect = document.getElementById('endgameItem');
     const calculateButton = document.getElementById('calculateButton');
     const resultsTree = document.getElementById('resultsTree');
     const craftingStepsTextArea = document.getElementById('craftingSteps');
+	
 
     // Attach event listeners
     document.getElementById('saveButton').addEventListener('click', saveInventory);
     document.getElementById('uploadFile').addEventListener('change', handleFileUpload);
     document.getElementById('loadClipboardButton').addEventListener('click', loadFromClipboard);
+	document.getElementById('calculateButton').addEventListener('click', () => {
+    const selectedItem = document.getElementById('endgameItem').value;
+    const inventory = {};
+
+    baseIngredients.forEach(ingredient => {
+        inventory[ingredient] = parseInt(document.getElementById(ingredient).value) || 0;
+    });
+
+    const { missingItems, craftingSteps } = calculateRequirements(selectedItem, inventory);
+    
+    // Display results
+    displayResults(missingItems, craftingSteps);
+});
 
     // Populate inventory fields when the page loads
     populateInventoryFields();
