@@ -275,6 +275,17 @@ function populateInventoryFields() {
     });
 }
 
+// Populate endgame items dropdown
+function populateEndgameItems() {
+    const endgameItemSelect = document.getElementById('endgameItem');
+    Object.keys(recipes).forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = item;
+        endgameItemSelect.appendChild(option);
+    });
+}
+
 // Save inventory data as a JSON file
 function saveInventory() {
     const inventory = {};
@@ -344,5 +355,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Populate inventory fields when the page loads
     populateInventoryFields();
+	populateEndgameItems();
 });
 
